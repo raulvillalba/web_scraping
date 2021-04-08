@@ -9,8 +9,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 
 # Devuelve el texto de la crítica y la puntuación asignada por el crítico'
-def obtener_criticas(href):
-    url = href
+def obtener_criticas(url):
     criticas = []
     puntuaciones = []
     resultado = []
@@ -31,26 +30,20 @@ def obtener_criticas(href):
         resultado.append([criticas[i], puntuaciones[i]])
     return resultado
 
-# Devuelve los datos de la pelicula: descripcion, premios, calificacion y duracion
-def obtener_datos_pelicula(href):
-    url = href
+# Devuelve los datos de la pelicula: descripcion, premios y duracion
+def obtener_datos_pelicula(url):
     descripcion = []
     listaPremios = []
     pagina = requests.get(url)
     soup = BeautifulSoup(pagina.content, 'html.parser')
     duracion = soup.find('dd', itemprop="duration")
     if duracion is None:
-        return -1, 0, 0, 0
+        return -1, 0, 0
     duracion = duracion.text
-
-    calificacion = soup.find('div', id="movie-rat-avg")
-    if calificacion is  None:
-        return -1, 0, 0, 0
-    calificacion = calificacion.text
 
     descr = soup.find('dd', attrs={'itemprop': 'description'})
     if descr is None:
-        return -1, 0, 0, 0
+        return -1, 0, 0
     descr = descr.getText()
 
     descripcion.append(descr)
@@ -62,7 +55,7 @@ def obtener_datos_pelicula(href):
             premios.append(premio.getText())
     listaPremios.append(premios)
 
-    return descripcion, listaPremios, calificacion, duracion
+    return descripcion, listaPremios, duracion
 
 # Funcion que se llama antes de salir. Guarda los datos en formato csv
 def guardar_csv(titulo, referencia, duracion, imagen, descripcion, calificacion, listaPremios, listaCriticas):
@@ -116,15 +109,22 @@ for i in range(10):
         # Añadimos la referencia
         referencia.append(poster.a['href'])
 
-        descr,prem, cal, dur = obtener_datos_pelicula(poster.a['href'])
+        cal = card.find('div', class_="avgrat-box")
+        if cal is None:
+            print("too many requests")
+            guardar_csv(titulo, referencia, duracion, imagen, descripcion, calificacion, listaPremios, listaCriticas)
+            exit()
+        # Añadimos la calificacion media
+        calificacion.append(cal.text)
+
+        descr,prem, dur = obtener_datos_pelicula(poster.a['href'])
         if descr == -1:
             print("too many requests")
             guardar_csv(titulo, referencia, duracion, imagen, descripcion, calificacion, listaPremios, listaCriticas)
             exit()
-        # Añadimos descripcion, lista de premios, calificacion y duracion
+        # Añadimos descripcion, lista de premios y duracion
         descripcion.append(descr)
         listaPremios.append(prem)
-        calificacion.append(cal)
         duracion.append(dur)
 
         img = card.find('img')
